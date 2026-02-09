@@ -16,3 +16,132 @@ Workaround:
   - kubectl create namespace ingress-nginx --dry-run=client -o yaml | kubectl apply -f -
   - helm install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx
+- deploy cert-manager:
+  - helm repo add jetstack https://charts.jetstack.io
+  - helm repo update
+  - kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
+  - helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.14.4 --set installCRDs=true
+- deploy: Lets Encrypt Cluster Issuer - apply following manifest:
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    email: you@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+```
+- create Retain StorageClass and set as default (Retain SC = if I remove PVC, PV will not be removed)
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path-retain
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: rancher.io/local-path
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: false
+```
+  - kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+- deploy ECK operator:
+  - helm repo add elastic https://helm.elastic.co
+  - helm repo update
+  - kubectl create namespace elastic-system --dry-run=client -o yaml | kubectl apply -f -
+  - helm install eck-operator elastic/eck-operator --namespace elastic-system
+- set label + taint 3 worker nodes as ES only
+  - for n in k3d-es-lab-agent-0 k3d-es-lab-agent-1 k3d-es-lab-agent-2; do kubectl label node $n node-role=elasticsearch --overwrite kubectl taint node $n elasticsearch=true:NoSchedule --overwrite done
+- deploy elastic search:
+  - kubectl create namespace elasticsearch
+  - apply following manifest:
+```yaml
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: es
+  namespace: elasticsearch
+spec:
+  version: 8.12.2
+  nodeSets:
+  - name: nodes
+    count: 3
+    config:
+      node.store.allow_mmap: false
+    podTemplate:
+      spec:
+        nodeSelector:
+          node-role: elasticsearch
+        tolerations:
+        - key: "elasticsearch"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  elasticsearch.k8s.elastic.co/cluster-name: es
+              topologyKey: kubernetes.io/hostname
+        containers:
+        - name: elasticsearch
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms1g -Xmx1g"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              memory: "2Gi"
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path-retain
+        resources:
+          requests:
+            storage: 10Gi
+```
+- Expose ES to Internet - create ingress with cert-manager annotation (cert-manager will create certificate and TLC secret)
+  - apply following manifest:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: es
+  namespace: elasticsearch
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ${ES_HOST}
+    secretName: es-public-tls
+  rules:
+  - host: ${ES_HOST}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: es-es-http
+            port:
+              number: 9200
+```
+  - check certificate:
+  - kubectl -n elasticsearch get certificate,order,challenge
+  - kubectl -n elasticsearch describe certificate es-public-tls
