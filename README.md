@@ -38,7 +38,7 @@ spec:
         ingress:
           class: nginx
 ```
-- create Retain StorageClass and set as default (Retain SC = if I remove PVC, PV will not be removed)
+- create Retain StorageClass and set as default (Retain SC = if I remove PVC, PV will not be removed - no data loss)
 ```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -150,4 +150,6 @@ spec:
     - kubectl -n elasticsearch get certificate es-public-tls -o jsonpath='{.status.notBefore}{"\n"}{.status.notAfter}{"\n"}{.status.renewalTime}{"\n"}'
 
   <img width="898" height="752" alt="image" src="https://github.com/user-attachments/assets/8e215f92-d433-42f4-983b-c68ff7d1fe4c" />
+
+  - https://es.89.167.16.69.nip.io/
 
