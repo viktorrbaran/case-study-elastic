@@ -112,6 +112,8 @@ spec:
           requests:
             storage: 10Gi
 ```
+- check credentials for elastic user (ECK created secret automatically)
+  - kubectl -n elasticsearch get secret es-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode; echo
 - Expose ES to Internet - create ingress with cert-manager annotation (cert-manager will create certificate and TLC secret)
   - apply following manifest:
 ```yaml
@@ -143,7 +145,9 @@ spec:
               number: 9200
 ```
   - check certificate:
-  - kubectl -n elasticsearch get certificate,order,challenge
-  - kubectl -n elasticsearch describe certificate es-public-tls
-- check credentials for elastic user (ECK created secret automatically)
-  - kubectl -n elasticsearch get secret es-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode; echo 
+    - kubectl -n elasticsearch get certificate,order,challenge
+    - kubectl -n elasticsearch describe certificate es-public-tls
+    - kubectl -n elasticsearch get certificate es-public-tls -o jsonpath='{.status.notBefore}{"\n"}{.status.notAfter}{"\n"}{.status.renewalTime}{"\n"}'
+
+  <img width="898" height="752" alt="image" src="https://github.com/user-attachments/assets/8e215f92-d433-42f4-983b-c68ff7d1fe4c" />
+
