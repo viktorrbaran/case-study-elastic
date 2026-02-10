@@ -145,3 +145,5 @@ spec:
   - check certificate:
   - kubectl -n elasticsearch get certificate,order,challenge
   - kubectl -n elasticsearch describe certificate es-public-tls
+- check credentials for elastic user (ECK created secret automatically)
+  - kubectl -n elasticsearch get secret es-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode; echo 
