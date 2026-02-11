@@ -52,7 +52,7 @@ volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: false
 ```
   - Currently, both are set as default, so we will mark the original one as not default:
-    kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' ()
+      - kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' ()
 - deploy ECK operator:
   - helm repo add elastic https://helm.elastic.co
   - helm repo update
