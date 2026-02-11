@@ -29,7 +29,7 @@ metadata:
   name: letsencrypt
 spec:
   acme:
-    email: you@example.com
+    email: vudcaa@example.com
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-account-key
