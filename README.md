@@ -115,7 +115,7 @@ spec:
 ```
 - check credentials for elastic user (ECK created secret automatically)
   - kubectl -n elasticsearch get secret es-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode; echo
-- Expose ES to Internet - create ingress with cert-manager annotation (cert-manager will create certificate and TLC secret)
+- Expose ES to Internet - create ingress with cert-manager annotation (cert-manager will create certificate and TLS secret)
   - apply following manifest:
 ```yaml
 apiVersion: networking.k8s.io/v1
